@@ -5,10 +5,22 @@
 ## Table of Contents
 
 ## What is Kafka?
-Kafka to tak zwany message broker - SQS, słuzacy do komunikacji aplikacji ze soba
-\includegraphics[width=\textwidth]{}
+Kafka to tak zwany message broker - SQS, słuzacy do komunikacji aplikacji ze soba.
+- Enables loose-coupling
+- Scalable - scales horizontally
 
-![alt text]()
+![alt text](image.png)
+
+## Apache Kafka infrastracture
+
+# Producer - the application that pushes the message. Client like Java App that want to write/send an event to kafka cluster.
+
+# Kafka Cluster - ZooKeeper navigates all of the brokers in the cluster. Kafka Brokers - special servers that executes the jobs, replicate data and provide scalability, high availability. Kafka Topics  are used to organize and
+categorize the stream of messages that producer want to send and then consumer to consume. 
+
+
+
+# Consumer - consumes the message send by producer by pulling it from Kafka Cluster. Other Applications that subscribe to Kafka Cluster.
 
 
 ```java
