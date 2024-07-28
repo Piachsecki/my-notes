@@ -1,0 +1,15 @@
+# Kafka
+
+> Study guide for implementing Kafka into SpringBoot applications
+
+## Table of Contents
+
+## What is Kafka?
+Kafka to tak zwany message broker - SQS, słuzacy do komunikacji aplikacji ze soba
+\includegraphics[width=\textwidth]{}
+
+![alt text]()
+
+
+```java
+
