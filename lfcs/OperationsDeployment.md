@@ -251,3 +251,111 @@ sudo fsck /dev/sda1
 sudo umount /dev/sda1
 sudo fsck /dev/sda1
 ```
+
+
+# 5
+> Change Kernel RUntime Parameters, Persistent and Non-Persistent
+
+
+Kernel RUntime Parameters - fancy description of what linux kernel does jobs internally.
+It is moslty low level stuff - like allocating memory, handling network traffic, itp.
+```bash
+  sudo sysctl -a #PRints all the runtime parameters
+```
+THis is the output of this command and
+- vm - memory related stuff - virtual memory
+- net - network stuff
+- fs - file system setting
+- 0 = false
+- 1 = true
+```bash
+
+vm.numa_zonelist_order = Node
+vm.oom_dump_tasks = 1
+vm.oom_kill_allocating_task = 0
+vm.overcommit_kbytes = 0
+vm.overcommit_memory = 0
+vm.overcommit_ratio = 50
+vm.page-cluster = 3
+vm.page_lock_unfairness = 5
+vm.panic_on_oom = 0
+vm.percpu_pagelist_fraction = 0
+vm.stat_interval = 1
+sysctl: permission denied on key 'vm.stat_refresh'
+vm.swappiness = 60
+vm.unprivileged_userfaultfd = 1
+vm.user_reserve_kbytes = 60063
+vm.vfs_cache_pressure = 100
+vm.watermark_boost_factor = 0
+vm.watermark_scale_factor = 10
+vm.zone_reclaim_mode = 0```
+```
+
+To change the values of the parameters we type:
+```bash
+  sudo sysctl -w [parameter_name=0/1]
+  sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 # -w - write
+
+  #But it is only set for this boot if it restart our system it comes back to the previous value
+```
+To make persistent changes we have to change/create /etc/sysctl.d/filename.conf file
+
+THIS FILES HAVE TO END WITH .conf extension
+
+sudo nano/vim /etc/sysctl.d/swap-less.conf
+and now set it
+vm.swapiness=20
+
+OR
+we can update the /etc/sysctl.conf file
+and now set it
+vm.swapiness=20
+
+But this parameter will be seen and will be persistent from the next boot, to make it available now we have to type:
+```bash
+  sudo sysctl -p /etc/sysctl.d/swap-less.conf
+  #or default
+  sudo sysctl -p #It automatically takes etc/sysctl.conf this file
+```
+
+
+
+### List and Identify SELinux FIle and Process Contexts
+Currently the read/write/execute priviliges are not enough for the cyber attacks, so linux kernel provides SELinux that give us advanced access restriction.
+
+To check SELinux Contexts we have to type:
+```bash
+  ls -Z
+```
+This Security context are always displayed in the same format:
+
+unconfined_u  :  object_r  :  user_home_t  :  s0
+user             role         type            level
+
+- user - every user that logs into a linux system is mapped to an SE Linux user
+- role - each user can only assume predefined roles
+- type - 
+- level - almost never accessed 
+
+By checking this fields in this order we can get granted pros:
+- 1. ONly certain users can enter certain roles and then certain types
+- 2. It lets authorized users and processes do their job, by granting the permissions they need
+- 3. Authorized users and processes are allowaed to take only a limited set of actions
+
+
+We can see that processes have their SELinux Contexts too. To see their 'roles' type:
+```bash
+  ps axZ
+
+```
+
+anything labeled with unconfined_t - is running unresstricted - processes can do whatever they want
+
+
+to see the users SELinux roles and type enter:
+```bash
+  id -Z
+  #or
+  sudo semanage login -l #To see what will be added to a user that logs in
+  sudo semanage login -l #Let us to see which roles we can assign to users
+```
