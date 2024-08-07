@@ -359,3 +359,55 @@ to see the users SELinux roles and type enter:
   sudo semanage login -l #To see what will be added to a user that logs in
   sudo semanage login -l #Let us to see which roles we can assign to users
 ```
+
+### Create and Enforce MAC using SELinux
+In ubuntu by default App Armor is enabled instead of SELinux. We have to then check if it is already installed/ or install and configure it on our own
+```bash
+  sudo systemctl stop apparmor.service
+  sudo systemctl disable apparmor.service
+  sudo apt install selinux-basics auditd
+
+  #Now after we installed it we have to configure it to tell the linux kernel to use it
+  sudo selinux-activate    #Naprawia jakby pliki i foldery zeby mialy odpowiednie labele, po tym musimy bootnac nasz system
+  reboot
+
+
+
+  #Now after our system reboots we have the proper file structure that looks like this:
+  ls -Z /
+
+```
+      system_u:object_r:bin_t:s0 bin                  system_u:object_r:proc_t:s0 proc
+         system_u:object_r:boot_t:s0 boot        system_u:object_r:user_home_dir_t:s0 root
+       system_u:object_r:device_t:s0 dev               system_u:object_r:var_run_t:s0 run
+          system_u:object_r:etc_t:s0 etc                   system_u:object_r:bin_t:s0 sbin
+    system_u:object_r:home_root_t:s0 home              system_u:object_r:default_t:s0 snap
+          system_u:object_r:lib_t:s0 lib                   system_u:object_r:var_t:s0 srv
+          system_u:object_r:lib_t:s0 lib32             system_u:object_r:default_t:s0 swap.img
+          system_u:object_r:lib_t:s0 lib64               system_u:object_r:sysfs_t:s0 sys
+          system_u:object_r:lib_t:s0 libx32                system_u:object_r:tmp_t:s0 tmp
+   system_u:object_r:lost_found_t:s0 lost+found            system_u:object_r:usr_t:s0 usr
+          system_u:object_r:mnt_t:s0 media             system_u:object_r:default_t:s0 vagrant
+          system_u:object_r:mnt_t:s0 mnt                   system_u:object_r:var_t:s0 var
+
+and sestatus command gives us the enabled status
+
+Wyrozniamy 3 rozne typy dla SELinux: (mozemy zobaczyc aktualny tryb za pomoca komendy getenforce)
+- Enforcing (Wymuszający) - W tym trybie SELinux egzekwuje polityki bezpieczeństwa. Oznacza to, że wszelkie działania, które naruszają politykę, są blokowane.
+- Permissive (Dopuszczający) - W tym trybie SELinux nie egzekwuje polityk bezpieczeństwa, ale nadal monitoruje system i rejestruje wszelkie działania, które naruszałyby politykę, gdyby był w trybie enforcing.
+- Disabled (Wyłączony) - W tym trybie SELinux jest całkowicie wyłączony, co oznacza, że nie monitoruje ani nie egzekwuje żadnych polityk bezpieczeństwa.
+```bash
+  sudo setenforce 1 #Activates Enforcing Mode, but it sets it up only in this boot, if we reboot it comes back to permissive
+  sudo setenforce 0 #Activates Permissivee Mode
+
+
+  #To set it up persistently, we have to modify /etc/selinux/config
+```
+
+
+
+
+To see the logs type:
+```bash
+  sudo audit2why --all  #It shows us the logs in for example permissive stage, where sth would be restricted/denied, but it is not because we are in permisse state
+```
