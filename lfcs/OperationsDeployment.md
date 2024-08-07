@@ -404,10 +404,41 @@ Wyrozniamy 3 rozne typy dla SELinux: (mozemy zobaczyc aktualny tryb za pomoca ko
   #To set it up persistently, we have to modify /etc/selinux/config
 ```
 
-
-
-
 To see the logs type:
 ```bash
   sudo audit2why --all  #It shows us the logs in for example permissive stage, where sth would be restricted/denied, but it is not because we are in permisse state
 ```
+
+
+To change for example the user in SELinx of some file we can do it by the command:
+```bash
+  sudo chcon -u unconfined_u /var/log/auth.log
+```
+
+To change the role:
+```bash
+  sudo chcon -r object_r /var/log/auth.log
+```
+To change the type:
+```bash
+  sudo chcon -t user_home_t /var/log/auth.log
+```
+
+To list all available users predifned for SELinux we can check by:
+```bash
+  seinfo -u # for users
+  seinfo -r # for  roles
+  seinfo -t # for types
+
+  sudo chcon --reference=/var/log/dmesg /var/log/auth.log #Sets everything for auth.log like it is in dmesg - roles/users/types
+
+```
+
+We can automatically set the proper types for the files written in specific directories
+
+```bash
+  sudo restorecon -R /var/www/ #It automatically changes all of the files in this directory to the types that linux find the most applicable in here
+
+  sudo restorecon /var/www/10 #Comes back to default types for this exact type
+```
+
