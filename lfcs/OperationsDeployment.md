@@ -441,4 +441,73 @@ We can automatically set the proper types for the files written in specific dire
 
   sudo restorecon /var/www/10 #Comes back to default types for this exact type
 ```
+# 6
+> Docker && VM's
 
+
+We are going to use VIRSH and KME
+
+First install all the packages that are required.
+We have multiple ways to start/create the vm, but the one we are going to use is
+through XML file.
+1. Create a .xml file that looks like:
+
+```html
+ <domain type='qemu'>
+    <name>TestMachine</name>
+    <memory unit="GiB">1</memory>
+    <vcpu>1</vcpu>
+    <os>
+        <type arch="x86_64">hvm</type>
+        <boot dev='cdrom'/>
+    </os>
+</domain>
+
+```
+2. Then we will use the command to create this vm
+```bash
+    virsh define testmachine.xml
+```
+
+3. Now we can see this domain by virsh list -all
+4. NOw we can start the machine: virsh start TestMachine
+5. We can now reboot it by virsh reboot TestMachine
+6. virsh reset TestMachine
+7. virsh shutdown TestMachine 
+8. virsh destroy TestMachine - it is like unplugging it but not destroing
+To destroy a VM machine, we have to use the command:
+```bash
+    virsh undefine testmachine.xml #So pretty similar to the one that is being used during starting
+  
+    virsh dominfo TestMachine # Let us see the basic info of this vm
+    
+    virsh setvcpus TestMachine 2 --config
+    
+    #Basically use man virsh / virsh --help to see all the options and to get familiar with it
+```
+
+### Create and Boot VM
+
+We can now boot a vm, by UBUNTU img.
+1. Download the image. Afterwards we can check the checksums of the file downloaded to check
+if everything downloaded successfully. First download SHA256SUMS.gpg form UBUNTU webpage and then
+you can type in the folder where you are an image downloaded:
+```bash
+    sha256sum -c SHA256SUMS 2>&1 | grep OK #If it returns sth else than 'OK', you have to redownload the img
+```
+
+2. To modify this image- to for example change the space on this image we can do it by
+```bash
+    qemu-img [COMMAND] img
+    qemu-img info [].img
+    qemu-img resize [].img 10G
+```
+3. Now we can change the path of this img to the proper location - /var/lib/libvirt/images/ directory
+```bash
+    sudo cp [].img /var/lib/libvirt/images/
+```
+4. Now we can install it by virt.
+```bash
+    virt-install --osinfo ubuntu24.04 --name ubuntu 1 --memory 1024 --vcpus 1 --import --disk 
+    /var/lib/libvirt/images/[].img  --graphics none
+```
