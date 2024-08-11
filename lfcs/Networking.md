@@ -291,3 +291,276 @@ More advanced command:
      sudo ufw allow in on en0s03 from 10.0.0.192 to 10.0.0.100 proto tcp #incoming rule
      sudo ufw allow out on en0s03 from 10.0.0.100 to 10.0.0.192 proto tcp #outcoming rule
 ```
+
+
+# 3
+> Port redirection and Network Address Translation (NAT)
+
+
+Port redirection.
+Some networks are not publicly accessable from the internet. Thats why we need port redirection
+
+
+```
+                                                         Internal Network
+                                             |------->      Server1
+Internet -------> Publicly Accessible server |------->      Server2
+                                             |------->      Server3
+```
+And on Publicly Accessible server we will have ports that will be listening for incoming traffic
+and will be redirecting the requests to the right servers on the internal network
+
+Teraz po polsku przedstawie na czym dokładnie polega NAT na podstawie przykładu powyżej
+
+1. Komputer w sieci lokalnej (192.168.1.2) chce uzyskać dostęp do strony internetowej na serwerze 198.51.100.7.
+
+2. Komputer wysyła pakiet z żądaniem HTTP do serwera. Pakiet ten ma:
+- Źródłowy adres IP: 192.168.1.2 (prywatny adres IP komputera).
+- Docelowy adres IP: 198.51.100.7 (publiczny adres IP serwera).
+3. Pakiet dociera do routera. Router działa jako brama między twoją siecią lokalną a Internetem.
+
+4. NAT w routerze modyfikuje pakiet:
+- Router zmienia adres źródłowy pakietu z 192.168.1.2 na swój publiczny adres IP 203.0.113.5.
+- Router zapisuje informację o translacji, aby wiedzieć, do którego urządzenia w sieci lokalnej przesłać odpowiedź z serwera.
+
+5. Pakiet opuszcza router i wchodzi do Internetu z publicznym adresem IP 203.0.113.5.
+
+6. Publiczny serwer 198.51.100.7 otrzymuje pakiet, widzi jako adres źródłowy 203.0.113.5 (adres twojego routera), a nie 192.168.1.2.
+
+7. Serwer odsyła odpowiedź na publiczny adres IP 203.0.113.5 (adres twojego routera).
+
+8. Router odbiera odpowiedź, a dzięki zapisanej informacji o translacji wie, że ten pakiet należy przesłać z powrotem do komputera 192.168.1.2 w prywatnej sieci lokalnej.
+
+9. Router modyfikuje pakiet (przywracając oryginalny adres źródłowy) i przesyła go do komputera w sieci lokalnej.
+
+
+### How to set up port redirection ?
+We have to enable IP forwarding because it is disabled by default
+> /etc/sysctl.conf
+
+and change this line:
+```bash
+#
+# Do not send ICMP redirects (we are not a router)
+#net.ipv4.conf.all.send_redirects = 0
+#
+```
+
+Or change this file:
+> /etc/sysctl.d/99-sysctl.conf
+
+And change these lines:
+```bash
+#net.ipv4.ip_forward=1
+#net.ipv6.conf.all.forwarding=1
+
+and run sudo sysctl system
+```
+
+The command in terminal for the port redirection:
+Ta komenda przekierowuje cały ruch TCP i UDP, który przychodzi do interfejsu enp1s0 z sieci 10.0.0.0/24 na port 8080, na serwer wewnętrzny o adresie IP 192.168.0.5 na port 80.
+```bash
+     sudo iptables -t nat -A PREROUTING -i enp1s0 -s 10.0.0.0/24 -p tcp -p udp --dport 8080 -j DNAT --to-destination 192.168.0.5:80
+```
+
+iptables: Narzędzie służące do konfiguracji zapory sieciowej (firewall) w systemie Linux.
+
+-t nat: Wskazanie, że modyfikujemy tablicę nat (Network Address Translation), która jest używana do translacji adresów IP.
+
+-A PREROUTING: Dodanie (-A od "Append") reguły do łańcucha PREROUTING, który przetwarza pakiety zanim zostaną one przekierowane do odpowiedniego interfejsu sieciowego. Reguły w PREROUTING są stosowane do wszystkich pakietów przychodzących.
+
+-i enp1s0: Określenie interfejsu sieciowego, na którym reguła ma być stosowana. W tym przypadku jest to enp1s0.
+
+-s 10.0.0.0/24: Źródłowy adres IP lub zakres adresów (w notacji CIDR). Reguła będzie stosowana tylko do pakietów pochodzących z sieci 10.0.0.0/24.
+
+-p tcp -p udp: Określenie protokołów, które mają być objęte tą regułą. W tym przypadku są to zarówno tcp, jak i udp.
+
+--dport 8080: Określenie docelowego portu, na który przychodzące pakiety mają być skierowane. Reguła ta dotyczy portu 8080.
+
+-j DNAT: Wskazanie celu reguły (-j od "jump"). DNAT (Destination Network Address Translation) oznacza, że docelowy adres IP w przychodzących pakietach zostanie zmieniony na inny.
+
+--to-destination 192.168.0.5:80: Określenie nowego docelowego adresu IP i portu, na który mają być przekierowane pakiety. W tym przypadku pakiety kierowane na port 8080 zostaną przekierowane na adres 192.168.0.5 i port 80.
+
+
+
+### Reverse Proxies and Load Balancers
+
+
+
+> Reverse Proxies
+
+We have a situation like this in the internet:
+```bash
+                     ------------>                <---------
+User (Web Browser)   <------------  Reverse Proxy ---------> Web Server
+
+```
+This reverse Proxy have multiple advantages.
+Transition of the new web servers are much easier. We can build a new web server and then just tell the reverse proxy
+to use this new one from now on. We dont have to switch off our resources
+
+Other advantages of REverse PRoxies are:
+- Caching pages
+- Filtering Web Traffic
+
+
+### Creating Reverse Proxies
+
+Czym jest nginx?
+- Został zaprojektowany z myślą o obsłudze dużych ilości jednoczesnych połączeń przy minimalnym wykorzystaniu zasobów systemowych, co czyni go popularnym wyborem wśród administratorów systemów i programistów.
+
+Reverse Proxy: Nginx może działać jako reverse proxy, co oznacza, że przyjmuje zapytania od klienta (np. przeglądarki internetowej) i przekazuje je do jednego lub więcej serwerów aplikacyjnych w backendzie. Jest to przydatne w celu równoważenia obciążenia między serwerami (load balancing) oraz ochrony wewnętrznej infrastruktury.
+
+Load Balancer: Nginx może równomiernie rozdzielać ruch pomiędzy wiele serwerów, co zwiększa skalowalność aplikacji i zapewnia ciągłość działania nawet w przypadku awarii jednego z serwerów.
+
+
+To create it we have to:
+- use sudo apt install nginx
+- And then create 
+- edit file: sudo vim /etc/nginx/sites-available/proxy.conf
+
+``` bash
+ server {
+	listen 80;
+
+	location /images {
+		proxy_pass http://1.1.1.1:8081
+	}
+}
+```
+
+"location /images" : This enables a reverse proxy to the request that contains /images in its url
+example.com/images/dog.jpg    ---> ACCEPTS
+example.com/videos/cat.mp4    ---> DOES NOT ACCEPT
+
+
+
+"proxy_pass http://1.1.1.1": if the request matches the location directive it will be proxied to the web server
+specified here. We can Use here a hostname/domain name or IP address
+
+But defining this file in /etc/nginx/sites-available/proxy.conf is not enough to make it available right away.
+We have to enable it in /etc/nginx/sites-enabled/... .
+To do so we can create a link:
+```bash
+     sudo ln -s /etc/nginx/sites-available/proxy.conf /etc/nginx/sites-enabled/proxy.conf
+     
+     #And disable the current webserver configuration:
+     #But dont worry - this file is also a soft link, which has its template in a different place
+     #So removing it by rm command does not mean we will get rid of it permanently or we will loose it somehow
+     sudo rm /etc/nginx/sites-enabled/default 
+     
+     
+     sudo nginx -t #This tests if everything is fine
+     sdo systemctl reload nginx.service
+```
+
+> Load Balancers
+
+Let us redirect the traffic to different web servers to split up a work so every web server is not over-used.
+
+```bash
+                     ------------>                 ---------> Web Server 1
+User (Web Browser)   <------------  Load Balancers ---------> Web Server 2
+                                                   ---------> Web Server 3
+
+```
+
+### Creating Load Balancers
+
+```bash
+     sudo rm /etc/nginx/sites-enabled/proxy.conf  #To remove previous configurations of reverse proxies
+     sudo vim /etc/nginx/sites-available/lb.conf  #A file where we will define a load balancer
+
+```
+
+
+```
+upstream mywebservers{
+     least_conn;
+     server 1.2.3.4 weight=3;
+     server 5.6.7.8 down;
+     server 9.10.11.12 backup;
+     server 13.14.15.16:8080
+     server 17.18.19.20
+}
+
+server {
+     listen 80;
+     location / {
+          proxy_pass http://mywebservers;
+     }
+}
+```
+
+This is similar to the configuration of reverse proxy, but we first define which servers it should forward the traffic to.
+Now if we want to imply this config. we have to continue the same steps as with reverse proxies.
+
+```bash
+     sudo ln -s /etc/nginx/sites-available/lb.conf /etc/nginx/sites-enabled/lb.conf
+     
+     #And disable the current webserver configuration:
+     #But dont worry - this file is also a soft link, which has its template in a different place
+     #So removing it by rm command does not mean we will get rid of it permanently or we will loose it somehow
+     sudo rm /etc/nginx/sites-enabled/default 
+     
+     
+     sudo nginx -t #This tests if everything is fine
+     sdo systemctl reload nginx.service
+```
+
+
+
+### Set and synchronize System TIme USing Time Servers
+
+All the devices are using sth called Time servers. In reality its is Network Time Protocol 'NTP'
+
+```bash
+     sudo timedatectl set-timezone America/Los_Angeles
+     sudo timedatectl set-timezone Europe/Warsaw
+     
+     timedatectl #Prints current timezone and local time, itp
+     systemctl status systemd-timesyncd.service #Checks if our ntp server is running
+```
+
+TO edit it we can edit this file:
+```bash
+     ssudo vim /etc/systemd/timesyncd.conf
+```
+We can specify which ntp server we would like to use 
+
+
+
+
+### SSH
+
+SSH Client:
+- Co to jest: Klient SSH to oprogramowanie uruchamiane na komputerze, z którego użytkownik chce połączyć się z innym komputerem (serwerem SSH). Przykładami klientów SSH są OpenSSH, PuTTY (na Windows) oraz ssh (komenda w terminalu Linux/MacOS).
+- Funkcja: Klient SSH inicjuje połączenie z serwerem SSH, wprowadza dane logowania użytkownika (np. nazwę użytkownika i hasło lub klucz SSH) i po uzyskaniu dostępu pozwala użytkownikowi na zdalne zarządzanie serwerem, tak jakby był przed nim fizycznie.
+Sciezka do pliku na linuxie: 
+```bash
+     sudo vim /etc/ssh/ssh_config
+```
+
+
+SSH Server:
+- Co to jest: Serwer SSH to oprogramowanie działające na komputerze, który udostępnia swoje zasoby do zdalnego zarządzania przez klienta SSH. Popularnym serwerem SSH jest OpenSSH, który działa na systemach Linux i Unix oraz na Windowsie (od wersji 10).
+- Funkcja: Serwer SSH nasłuchuje na określonym porcie (zazwyczaj port 22) i czeka na przychodzące połączenia od klientów SSH. Po nawiązaniu połączenia, serwer autoryzuje użytkownika na podstawie danych logowania, a następnie udostępnia dostęp do systemu.
+  Sciezka do pliku na linuxie:
+```bash
+      sudo vim /etc/ssh/sshd_config
+```
+
+Jezeli chcemy wprowadzac jakies zmiany dla clienta warto po prostu dodac nowy plik konfiguracyjny, ktory mialby teoretycznie
+nadpisac te rzeczy ktore mamy zdefiniowane. Umieszcza sie je w :
+```bash
+     sudo vim /etc/ssh/ssh_config.d/[NAME_OF_OUR_FILE]
+```
+
+Fajnym/Waznym aspektem jest wlaczanie logowania tylko za pomoca ssh keys.
+
+ssh-keygen     - generowanie klucza
+Pozniej ten klucz jest widoczny i dostepny w /home/krpia/.ssh/[NAZWA_KLUCZA]
+
+Ale zeby sie zalogowac na serwer za pomoca klucza ssh, musimy
+1. skopiowac ten klucz na nasz serwer za pomoca: ssh-copy-id [NAZWA_SERWERA] (klucze po stronie serwera sa zdefiniowane w /home/kacper/.ssh/authorized_keys)
+
