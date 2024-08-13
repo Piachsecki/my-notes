@@ -272,3 +272,310 @@ WE CAN USE THE SAME MOUNT OPTIONS PERMANENTLY IN A FILE
 <file system> <mount point>   <type>       <options>   <dump>  <pass>
     /dev/vda2       /boot       ext3      ro,noexec      0       1 
 ```
+
+# 3
+
+### Remote Filesystems
+
+NFS - Network File System, to protokół umożliwiający współdzielenie plików między komputerami w sieci. Dzięki NFS użytkownicy mogą uzyskać dostęp do plików znajdujących się na zdalnym komputerze w taki sam sposób, jak do plików na lokalnym dysku.
+
+Jak działa NFS?
+- Serwer NFS: Udostępnia pliki i katalogi, które są dostępne dla klientów w sieci.
+- Klient NFS: Montuje zdalny system plików na swoim komputerze i uzyskuje do niego dostęp, jakby był lokalnie dostępny.
+
+
+
+Na systemie Linux konfiguracja NFS polega na:
+
+- Instalacji pakietów: nfs-kernel-server na serwerze oraz nfs-common na kliencie.
+- Konfiguracji udostępnianych zasobów: W pliku /etc/exports na serwerze definiuje się, które katalogi mają być udostępnione.
+- Montowaniu zasobów na kliencie: Używa się polecenia mount lub wpisuje zasób do /etc/fstab, aby zamontować katalog NFS.
+
+## Server SIDE
+
+```bash
+      sudo apt install nfs-kernel-server #server side
+      
+      sudo vim /etc/exports #Here we define which files/packages should be exported
+```
+
+Example of /etc/exports file:
+```bash
+# /etc/exports: the access control list for filesystems which may be exported
+#		to NFS clients.  See exports(5).
+#
+# Example for NFSv2 and NFSv3:
+# /srv/homes       hostname1(rw,sync,no_subtree_check) hostname2(ro,sync,no_subtree_check)
+#
+# Example for NFSv4:
+# /srv/nfs4        gss/krb5i(rw,sync,fsid=0,crossmnt,no_subtree_check)
+# /srv/nfs4/homes  gss/krb5i(rw,sync,no_subtree_check)
+#
+
+WHERE
+
+  the directory         which nfs clients should be allowed to use this remote file system
+  that will be
+  remote
+/srv/homes       hostname1(rw,sync,no_subtree_check) hostname2(ro,sync,no_subtree_check)
+
+
+
+
+hostname1 -> example.com/server1.example.com/[10.0.0.9]/[20.0.5.1/24]
+sync -> synchronous writes - NFS ensures that data written by client is actually saved on the storage device
+async -> asynchronous writes - faster, but not 100% stored
+no_subtree_check -> disables subtree checking
+no_root_squash -> allows root user to have root priviliges
+```
+
+After we change our /etc/exports file we have to apply these changes and make our nfs server available.
+To do so write:
+```bash
+      sudo exportfs -r # -r re-export. Refreshes "/etc/exports" file
+      sudo exportfs -v # Prints current nfs 
+```
+
+
+
+## Client SIDE
+
+```bash
+      sudo apt install nfs-common #Here are all utilities needed for a client side of nfs
+      
+      sudo mount [IP_OR_HOSTNAME_OF_SERVER]:/path/to/remote/directory /path/to/local/directory #This is how we mount shared nfs directory
+    
+      sudo mount 127.0.0.1:/etc /mnt
+      
+      
+      #If we want this NFS share to be auto mounted at boot time, we have to edit /etc/fstab
+      #And in the place where we before defined ext4, we type nfs
+      
+    <file system>        <mount point>   <type>       <options>   <dump>  <pass>
+      127.0.0.1:/etc       /mnt           nfs          defaults     0       0 
+
+```
+
+
+## NBD
+
+NBD to protokół sieciowy, który pozwala komputerowi na dostęp do blokowego urządzenia magazynującego (np. dysku twardego) znajdującego się na innym komputerze przez sieć. W praktyce, NBD umożliwia traktowanie zdalnego urządzenia jako lokalnego dysku.
+W systemie operacyjnym, zasób NBD jest widziany jako urządzenie blokowe, co oznacza, że można na nim tworzyć partycje, formatować je i montować jako system plików.
+Taki NFS ale do calego dysku/partycji
+
+Dziala tez w oparciu o serwer i klienta
+
+### Server Side
+```bash
+      sudo apt install nbd-server
+      
+      sudo vim /etc/nbd-server/config   #Default Configuration file
+      
+      #After we make changes we have to rerun the nbd deamon
+      sudo systemctl restart nbd-server.service
+```
+
+
+```bash
+[generic]
+# If you want to run everything as root rather than the nbd user, you
+# may either say "root" in the two following lines, or remove them
+# altogether. Do not remove the [generic] section, however.
+#       user = nbd
+#       group = nbd
+        includedir = /etc/nbd-server/conf.d
+        allowlist = true
+# What follows are export definitions. You may create as much of them as
+# you want, but the section header has to be unique.
+#
+[partition2]
+        exportname=/dev/sda1
+
+```
+
+[partition2] - the new name of our partition that will be shared
+      exportname=/dev/sda1 - the block storage that will be shared
+
+
+### Client Side
+
+```bash
+      sudo apt install nbd-client
+      sudo modprobe nbd #We have to enable this module, but this enables it only during this boot
+      
+      #To tell ubuntu to enable this module everytime we boot the system we have to edit this file:
+      
+     sudo vim /etc/modules-load.d/modules.conf
+     
+     
+     sudo nbd-client [IP_OF_THE_NBD_SERVER] -N [NAME_OF_THE_BLOCK_DEFINED]
+     sudo nbd-client 127.0.0.1 -N partition2
+     
+     #And now to access it we have to mount it somewhere in our system
+     sudo mount /dev/nbd0 /mnt
+```
+
+
+# 5
+> LVM Storage
+
+
+```bash
+      sudo apt install lvm2
+```
+PV - Physical Volume - real storage devices that it will be used (a disk, more rarely the partition)
+
+VG - Volume Group
+
+LV - Logical Volume
+
+PE - Physical Extent
+
+
+
+1. Tworzenie fizycznych wolumenów (Physical Volumes, PV)
+   - Fizyczny wolumen (PV) jest to dysk twardy, partycja dyskowa lub inne urządzenie magazynujące, które zostało przygotowane do użycia przez LVM.
+   - Używając narzędzia pvcreate, przekształcasz dysk lub partycję w fizyczny wolumen.
+   - Przykład: pvcreate /dev/sda1
+2. Tworzenie grupy wolumenów (Volume Groups, VG)
+   - Grupa wolumenów (VG) to pula przestrzeni dyskowej utworzona z jednego lub więcej fizycznych wolumenów.
+   - Grupa wolumenów łączy dostępne przestrzenie ze wszystkich fizycznych wolumenów, dając jednolitą przestrzeń, z której można tworzyć logiczne wolumeny.
+   - Przykład: vgcreate my_volume_group /dev/sda1 /dev/sdb1
+   - W tym przykładzie, my_volume_group łączy przestrzeń z /dev/sda1 i /dev/sdb1.
+3. Tworzenie logicznych wolumenów (Logical Volumes, LV)
+   - Logiczny wolumen (LV) to logiczna partycja, którą tworzysz wewnątrz grupy wolumenów.
+   - Logicznemu wolumenowi możesz przypisać określoną wielkość, która może być później dynamicznie zmieniana.
+   - Narzędzie lvcreate służy do tworzenia logicznych wolumenów.
+   - Przykład: lvcreate -L 500G -n my_logical_volume my_volume_group
+   - -L 500G oznacza, że wolumen logiczny będzie miał 500 GB przestrzeni.
+   - -n my_logical_volume nadaje nazwę wolumenowi logicznemu.
+4. Montowanie logicznego wolumenu
+   - Po utworzeniu logicznego wolumenu, możesz go sformatować za pomocą systemu plików, np. ext4.
+   - Przykład: mkfs.ext4 /dev/my_volume_group/my_logical_volume
+   - Następnie, montujesz ten wolumen do systemu plików.
+   - Przykład: mount /dev/my_volume_group/my_logical_volume /mnt/my_mount_point
+5. Rozszerzanie wolumenów logicznych
+   - Jeśli potrzebujesz więcej miejsca, możesz rozszerzyć logiczny wolumen, a następnie powiększyć system plików na tym wolumenie.
+   - Przykład: lvextend -L +100G /dev/my_volume_group/my_logical_volume
+   - Po rozszerzeniu logicznego wolumenu, należy powiększyć system plików, np. za pomocą resize2fs dla ext4.
+   - Przykład: resize2fs /dev/my_volume_group/my_logical_volume
+
+
+```bash
+      sudo pvcreate /dev/sdc /dev/sdd # Creates 2 pv's
+      
+      sudo vgcreate my_volume /dev/sdc /dev/sdd # creates VG that consists of 2 pv's
+      
+      sudo pvcreate /dev/sde
+      
+      sudo vgextend my_volume /dev/sde # Expands it for a new disk
+      sudo vgreduce my_volume /dev/sde
+      
+      sudo lvcreate --size 2G --name partition1 my_volume #Creates a LVM
+      sudo lvcreate --size 5G --name partition2 my_volume #Creates a LVM
+      
+      sudo lvs #Lists our lvs
+      
+      sudo lvresize --extents 100%VG my_volume/partition1 #Adds remaining space of the pv's to this LV
+      
+      sudo lvresize --size 2G my_volume/partition1 #Changes its size to original 2G
+      
+      sudo lvdisplay #Prints all the essential information of our lv's
+      
+      #To create a filesystem on LV:
+      #we have to create it by
+      sudo mkfs.ext4 /dev/[NAME_OF_VOLUME_GROUP]/[NAME_OF_LOGICAL_VOLUME]
+      
+      sudo mkfs.ext4 /dev/my_volume/partition1
+      
+```
+
+# 6
+> Monitor Storage Performance
+
+
+```bash
+      sudo apt install sysstat
+      
+      iostat 
+      
+      pidstat -pidstat  #-d - devices
+```
+
+Here we have the output of the iostat command. Data since bootup
+
+```bash
+Linux 6.5.0-44-generic (kompiq) 	13/08/24 	_x86_64_	(8 CPU)
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           5.31    0.02    1.12    0.11    0.00   93.45
+
+Device             tps    kB_read/s    kB_wrtn/s    kB_dscd/s    kB_read    kB_wrtn    kB_dscd
+loop0             0.00         0.03         0.00         0.00       1222          0          0
+loop1             0.00         0.00         0.00         0.00         17          0          0
+loop10            0.00         0.03         0.00         0.00       1224          0          0
+loop11            0.00         0.03         0.00         0.00       1212          0          0
+nvme0n1           5.35        97.46        91.17         0.00    4201223    3930025          0
+
+
+```
+tps - transfers per second
+
+# 7 
+> Advanced Filesystem Permissions
+
+
+Imagine we are being logged as kacper user and we belong to kacper group.
+What if we want to grant kacper permissions to edit and read a file nr 3, but not the other files.
+If we add him to the group he will be able to read and write to file 2 and file 1 too, so this is not 
+the best approach. THat is why we need advanced filestystem permissions
+```
+-rw-rw-r-- alex staff 0 MAy 23 5:56 file1
+
+-rw-rw-r-- alex staff 0 MAy 23 5:56 file2
+
+-rw-rw-r-- alex staff 0 MAy 23 5:56 file2
+```
+
+To do it we will use the feature called ACL'S. Access Control List. It can allow kacper to read and write,
+JAne to read onlly and Maciek to do not have any priviliges for example
+
+```bash
+      sudo apt install acl
+      
+      sudo setfacl --modify user:jeremy:rw file3
+      
+      sudo getfacl file3 #Prints all permissions of this file
+      
+      sudo setfacl --modify mask:r file3 #it sets the same permissions for all: user/groups/other as specified
+      
+      #We can set permissions in the same way for groups and others:
+      sudo setfacl --modify group:sudo:rw file3
+      
+      #Deleting
+      sudo setfacl --remove group:sudo file3
+      
+      #Deleting all
+      sudo setfacl --remove-all file3
+      
+      
+      #APplying setfacl for directories(we have to use it recursively)
+      sudo setfacl --recursive --modify user:jeremy:rx dir1/
+```
+
+
+But we have also different attributes that we can set for some users:
+For example it can be only append attribute:
+```bash
+   sudo chattr +a file3 #It give the attribute that we can only add data to this file but we cannot modify/change/delete the data which was there already
+```
+
+immutable attribute:
+
+```bash
+   sudo chattr +i file3 #File cannot be edited/deleted/changed
+   
+   lsattr file3 #Print the attributes of the file/directory
+   
+   #Basically we can add and delete an attribute by using '-' or '+' with the correct attribute flag
+```
