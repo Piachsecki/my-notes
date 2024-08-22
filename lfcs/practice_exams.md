@@ -111,3 +111,138 @@ Ale nadal nie pamietam gdzie to sie umieszczalo i jak to sie resetowalo wszystko
 
 zad 17
 LDAP - nic z tego nie zrobilem w powtorkach. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+LFCS EXAM 3 - 56 % chociaz wydaje mi sie ze wiecej po 3 zadania
+dodatkowo powinny byc zaliczone ze poprawnie
+- crontab
+- interfaces
+- docker
+
+
+
+1. - nie pamietam jak utowrzyc reverse proxy
+     server nginx.
+
+
+
+Pamietam ze potem jak stworzymy konfiguracje pliku, to
+zapisujemy ja w sites-available, pozniej tworzy soft link do sites-enabled
+
+rm /sites-enabled/default i
+
+najpierw sudo nginx -t (od try)
+sudo systemctl restart/revert nginx
+
+6. - Jak sprawdzic czy te paremetry zostaly odpowiednio ustawione
+
+
+9. - nie powtorzony iptables
+
+sudo iptables -t nat -A PREROUTING -s 10.11.12.0/24 -d 10.9.9.1
+to udalo mi sie wyjac z dokumentacji + z tego co pamietam
+
+a jezeli chodzi o POSTROUTING to nie wiem zupelnie jak to zrobic
+ale wpisalem cos takiego:
+sudo iptables -t nat -A POSTROUTING -s 10.9.9.1 MASQUERADE
+ale to jest zle
+s
+
+10. cos zjebane na stronce
+
+docker build -t kodekloud/nginx_kodekloud:1.0 .
+
+docker run -d --name kodekloud_webserv -p 81:80 id_contenera
+
+
+16. - jak sprawdzic czy zmiany wprowadzone w /etc/systemd/timedatectl.conf zostaly wprowadzone
+
+
+17. - powtorz cale nbd od poczatku jak robic
+
+
+
+
+
+
+
+
+
+
+
+
+sudo iptables -t nat -A PREROUTING -p tcp -s 10.9.9.0/24 --dport 8080 -j DNAT --to-destination 10.100.0.8:80
+
+
+sudo iptables -t nat -A PREROUTING -p tcp -s 10.5.5.0/24 --dport 81 -j DNAT --to-destination 192.168.5.2:80
+
+
+
+
+LFCS4
+
+
+
+1. jak sprawdzic zdefiniowane port redirection rules
+
+sudo iptables -t nat -L -n -v
+
+
+2. NTP default cos tam jak znalezc
+
+7.git push --set-upstream origin master
+
+co to dokladnie jest ?
+
+
+8. how to get the associated key to the certificate
+
+
+9. Expand the logical volume called LV1 to use 100% of the free space available on the VG1 volume group
+
+za chuj nie wiem czemu mi to nie dziala
+
+
+14. ogolnie zrobione dobrze ale nie wiem dlaczego akurat sie ustawilo na poprawny type label.
+    Sprawdz czy da sie ustawic to na co sie zmienia
+
+
+
+
+Add a cron job to the crontable of the user called john (not the system-wide crontable).
+
+This cron job should be executed every Monday and Saturday at 3 AM (03:00).
+The command executed by this cron job should be:
+tar acf /home/john/www-snapshot.tgz /var/www
+Important note: The crontable entry should be specified on a single line (not one line for Monday and a separate one for Friday).
+
+
+tu pod
+
+
+
+
+upstream server_my_server{
+server 124.123.123.123 weight=3;
+
+}
+
+
+server{
+listen 80;
+location / {
+proxy_conf server_my_server
+}
+}
+
