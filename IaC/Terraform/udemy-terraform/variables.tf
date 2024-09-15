@@ -1,4 +1,4 @@
 variable "prefix" {
-  type=string
+  type        = string
   description = "The prefix for the cat random name"
 }

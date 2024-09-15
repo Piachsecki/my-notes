@@ -1,5 +1,6 @@
 resource "random_pet" "my-pet" {
-  prefix = var.prefix
+  prefix    = var.prefix
   separator = "."
-  length = 1
+  length    = 1
+  sensitive = true
 }
