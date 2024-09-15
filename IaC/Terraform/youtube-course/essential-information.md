@@ -144,8 +144,165 @@ such as main.tf WITH the actual state(the one that was already provisioned)
 
 
 
+In the web-app folder we have the configuration specified for this architecture of an app:
+## Architecture
+![](architecture.png)
+
+
+```bash
+#resource - the creation of new resource
+# "aws_instance" - how it is called on aws
+# "instance_1" - how we want to call this instance
+
+
+resource "aws_instance" "instance_1" {
+...
+}
+
+# data - already existing resource?
+
+data "aws_vpc" "default_vpc" {
+  default = true
+}
+
+```
+
+
+# Part 4
+
+We can have the variables in terraform, which can be used
+to specify for example the region for aws ec2 instance and instead of typing 
+it manually we can create a variable. We have 3 types of variables:
+
+1) Input - definicja zmiennych wejsciowych do stworzenia instancji
+> var.<name>
+
+
+2) Local - zmienne ktore sa tworzone na podstawie innych zmiennych ?
+> local.<name>
+
+
+3) Output - zeby zwrocic najwazniejsze informacje po zakonczeniu procesu przez Terraforma
+
+
+Sometimes when we work with files it is important to mark a variable as sensitive:
+This ensures that during terraform plan/ terraform apply commands this
+data will not be shown explicitly.
+
+```bash
+variable "db_password" {
+description = "Hasło do bazy danych"
+type        = string
+sensitive   = true      #Here it is
+}
+
+
+resource "aws_db_instance" "example" {
+  identifier = "my-database"
+  engine     = "mysql"
+  instance_class = "db.t2.micro"
+  password   = var.db_password       #And here how we can use variable in an resource
+  username   = "admin"
+}
+
+
+```
+
+## And this is how we can pass the data/variables that were specified in the variables.tf file
+![](img.png)
+
+
+In .tfvars files we can specify directly what are the default var parameters
+our terraform should start with the terraform plan/apply commands
+> terraform apply -var-file="custom.tfvars"
 
 
 
 
+# Part 5
+> Additional Language features
 
+Count
+
+
+depends_on
+
+
+for_each
+
+
+
+# Part 6
+> Project organization + modules
+
+
+Modules are containers for multiple resources such as .tf or .tf.json files that are kept together
+in the same directory
+- root module - default one that is containing all .tf files in main working dir
+- child module - separate external module reffered to from a .tf file
+
+
+
+# Part 7
+> Managing multiple Environments
+
+We want to have kinda the same architecture of resources on our
+every environment - staging/prod/dev and to provision that
+we have 2 features that are called
+- workspaces
+> terraform workspace new dev - to create new workspace
+
+- file structure 
+> here we use different directories for every environment
+![](img_1.png)
+>  
+
+
+# Part 8
+> Testing our terraform code
+
+## Built in
+
+### Format
+Enforces style rules for your configurations.
+```
+terraform fmt -check # checks if formatter would make chances
+
+terraform fmt # applies those changes
+```
+
+### Validate
+Checks that configuration are valid.
+
+Terraform init is required to use validate. If not working with a remote backend, `terraform init -backend=false` can be used.
+```
+terraform validate
+```
+
+and then terraform plan
+
+### Or we can test our code with the help of bash: (already automating it)
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# Change directory to example
+cd ../../examples/hello-world
+
+# Create the resources
+terraform init
+terraform apply -auto-approve
+
+# Wait while the instance boots up
+# (Could also use a provisioner in the TF config to do this)
+sleep 60
+
+# Query the output, extract the IP and make a request
+terraform output -json |\
+jq -r '.instance_ip_addr.value' |\
+xargs -I {} curl http://{}:8080 -m 10
+
+# If request succeeds, destroy the resources
+terraform destroy -auto-approve
+```
