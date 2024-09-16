@@ -310,3 +310,151 @@ resource "aws_s3_bucket_object" "example" {
 }
 
 ```
+
+## DynamoDB in terraform
+> NoSQL database that can be used with terraform
+
+
+When we define a DynamoDB table we have to add hash_key to an attibute.
+It is a primary key of our table, so everytime we will be adding item into 
+this table we will have to enter an item with hash_key specified (primary key).
+
+```terraform
+  resource "aws_dynamodb_table" "project_sapphire_user_data" {
+        name           = "userdata"
+        billing_mode   = "PAY_PER_REQUEST"
+        hash_key       = "UserId"
+
+        attribute {
+            name = "UserId"
+            type = "S"  #S for string / N for number / itp. / B for bool 
+        }
+}
+```
+
+To insert data inside this table we have to use aws_dynamodb_table_item resource:
+```terraform
+resource "aws_dynamodb_table_item" "example" {
+  table_name = aws_dynamodb_table.example.name
+  hash_key   = aws_dynamodb_table.example.hash_key
+
+  item = <<ITEM
+{
+  "exampleHashKey": {"S": "something"},
+  "one": {"N": "11111"},
+  "two": {"N": "22222"},
+  "three": {"N": "33333"},
+  "four": {"N": "44444"}
+}
+ITEM
+}
+```
+
+
+## Remote State, Remote backends, state locking
+
+1) Remote State - mechanizm, gdzie nasz plik stanu jest przechowywany w zdalnej lokalizacji.
+W naszym przypadku bedzie to S3 bucket, ktory udostepnia ten plik wielu developerom.
+- mamy dostepne szyfrowanie danych w bucketcie S3
+- mamy dostepne automatyczne backupy/automatyczne przywracanie stanow
+
+Najczesciej korzystamy z tego w polaczeniu z state locking dostepnym z poziomy
+dynamodb zdefiniowanemu przez nas.
+
+
+
+
+2) State Locking (blokada stanu)
+Mechanizm, kiedy pracuje w organizacji z innymi developerami
+do zapewnienia, ze tylko 1 osoba w jednym momencie wprowadza zmiany
+do naszej infrastruktury za pomoca komendy terraform apply/terraform plan.
+Blokuje stan pliku aby inny proces nie mogł w tym czasie wprowadzac zmian
+
+
+
+Jak to działa:
+-   Gdy jeden użytkownik wykonuje operację, Terraform blokuje plik stanu, np. poprzez mechanizm blokad w zdalnym back-endzie (np. w Amazon S3 + DynamoDB).
+-   Jeśli inny użytkownik lub proces spróbuje uruchomić operację w tym samym czasie, otrzyma komunikat, że stan jest zablokowany.
+-   Po zakończeniu operacji, blokada jest usuwana, a inni użytkownicy mogą wykonywać operacje na stanie
+
+
+Implementujemy state Locking jak juz mamy zdefiniowany Remote Backend i najczesciej robimy to za pomoca
+struktury dynamoDB, ktora mozemy stworzyc rowniez w terraformie:
+
+
+```terraform
+# Tworzenie tabeli DynamoDB dla blokowania stanu
+resource "aws_dynamodb_table" "terraform_locks" {
+  name         = "terraform-lock-table"
+  billing_mode = "PAY_PER_REQUEST"   # Używamy trybu Pay-Per-Request, aby uniknąć ręcznego zarządzania jednostkami odczytu/zapisu
+  hash_key     = "LockID"
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+
+  tags = {
+    Name = "Terraform Lock Table"
+  }
+}
+
+# Tworzenie bucketu S3 dla pliku stanu
+resource "aws_s3_bucket" "terraform_state" {
+  bucket = "my-terraform-state-bucket"
+  acl    = "private"
+
+  tags = {
+    Name = "Terraform State Bucket"
+  }
+}
+
+# Konfiguracja backendu w oparciu o stworzone zasoby
+terraform {
+  backend "s3" {
+    bucket         = aws_s3_bucket.terraform_state.bucket   # Nazwa bucketu S3 z zasobu Terraform
+    key            = "finance/terraform.tfstate"                       # Ścieżka do pliku stanu juz w S3    
+    region         = "us-west-2"                            # Region, w którym znajduje się bucket
+    dynamodb_table = aws_dynamodb_table.terraform_locks.name # Nazwa tabeli DynamoDB dla blokad stanu
+    encrypt        = true                                   # Włącz szyfrowanie pliku stanu
+  }
+}
+
+
+```
+
+
+
+### IF WE MOVE FROM LOCAL TO REMOTE STATE FILES REMEMBER TO DELETE THE LOCAL .tfstate FILE !!
+
+### If we change the configuration and made a remote backend from the previous local one, we have to now run terraform init command again to :
+```shell
+Initializing the backend...
+Do you want to copy existing state to the new backend?
+```
+
+
+## Teraform state commands
+> To manipulate the state file WE CANNOT DO IT MANUALLY BY DELETING STH IN VIM for example
+
+To do so we should use the terraform state <subcommand> command with options:
+- terraform state list   - lists all resources only available in the state file
+- terraform state mv     - moves items in state file (renaming our resources if we mv them from the same state file to the same state file) or we can move them to different state file
+
+```terraform
+    #Changes name from: aws_dynamodb_table.state-locking  ->to-> aws_dynamodb_table.state-locking-db in the same state file
+    terraform state mv aws_dynamodb_table.state-locking  aws_dynamodb_table.state-locking-db 
+    
+     
+```
+
+- terraform state pull   - download and display the remote state of the state file that are stored in s3 for example
+- terraform state rm     - deletes resources in state files (if we dont use them anymore)
+```terraform
+    #It only removes this resource from being tracked by terraform!
+    #If we would have this s3 bucket inside our aws account it wouldnt be deleted, but it would be only stopped being tracked by our terraform state file
+    #SO any further changes in this s3 bucket wouldnt be seen or recognized by terraform commands
+    terraform state rm aws_s3_buvket.finance-2127482 
+
+```
+- terraform state show <resource_name>   - prints attributes form the specific resource
